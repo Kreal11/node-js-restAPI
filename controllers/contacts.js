@@ -5,9 +5,26 @@ const { ctrlWrapper } = require("../decorators");
 const Contact = require("../models/contact");
 
 const listContacts = async (req, res, next) => {
-  const data = await Contact.find();
+  const { id: owner } = req.user;
+  const { limit, page } = req.query;
+  const skip = (page - 1) * limit;
+
+  const data = await Contact.find({ owner })
+    .skip(skip)
+    .limit(limit)
+    .populate("owner", "email name");
+
+  const count = await Contact.countDocuments({ owner });
+  const totalPages = Math.round(count / +limit);
+
+  const pagination = {
+    perPage: +limit,
+    count: data.length,
+    page: +page,
+    totalPages,
+  };
   // if not needed - find({}, '-name -email etc')
-  res.json(data);
+  res.json({ data, pagination });
 };
 
 const getContactById = async (req, res, next) => {
@@ -22,7 +39,10 @@ const getContactById = async (req, res, next) => {
 
 const addContact = async (req, res, next) => {
   const body = req.body;
-  const createdContact = await Contact.create(body);
+
+  const { id } = req.user;
+
+  const createdContact = await Contact.create({ ...body, owner: id });
   res.status(201).json(createdContact);
 };
 
