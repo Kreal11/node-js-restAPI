@@ -148,4 +148,5 @@ module.exports = {
   logout: ctrlWrapper(logout),
   getOneUser: ctrlWrapper(getOneUser),
   updateAvatar: ctrlWrapper(updateAvatar),
+  verify: ctrlWrapper(verify),
 };
