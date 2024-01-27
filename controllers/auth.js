@@ -8,7 +8,6 @@ const gravatar = require("gravatar");
 const path = require("path");
 // const fs = require("fs/promises");
 const jimp = require("jimp");
-const nanoid = require("nanoid");
 const sendEMail = require("../services/emailService");
 
 const register = async (req, res) => {
@@ -23,7 +22,7 @@ const register = async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(req.body.password, 10);
 
-  const verificationToken = nanoid();
+  const verificationToken = "sdasdfaefd321fsf";
   const emailSettings = {
     to: email,
     subject: "Verification",
@@ -141,6 +140,29 @@ const verify = async (req, res) => {
   res.json({ message: "Verification successful" });
 };
 
+const resend = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw httpError(401, "User is not found");
+  }
+
+  if (user.isVerified) {
+    throw httpError(400, "User has already verified");
+  }
+
+  const emailSettings = {
+    to: email,
+    subject: "Verification",
+    html: `<a href="${envsConfig.baseUrl}/api/auth/verify/${user.verificationToken}" target="_blank">Click to verify</a>`,
+  };
+
+  await sendEMail(emailSettings);
+
+  res.json({ message: "Message sent" });
+};
+
 module.exports = {
   register: ctrlWrapper(register),
   login: ctrlWrapper(login),
@@ -149,4 +171,5 @@ module.exports = {
   getOneUser: ctrlWrapper(getOneUser),
   updateAvatar: ctrlWrapper(updateAvatar),
   verify: ctrlWrapper(verify),
+  resend: ctrlWrapper(resend),
 };
