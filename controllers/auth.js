@@ -8,6 +8,7 @@ const gravatar = require("gravatar");
 const path = require("path");
 // const fs = require("fs/promises");
 const jimp = require("jimp");
+const sendEMail = require("../services/emailService");
 
 const register = async (req, res) => {
   const { email } = req.body;
@@ -21,10 +22,20 @@ const register = async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(req.body.password, 10);
 
+  const verificationToken = "sdasdfaefd321fsf";
+  const emailSettings = {
+    to: email,
+    subject: "Verification",
+    html: `<a href="${envsConfig.baseUrl}/api/auth/verify/${verificationToken}" target="_blank">Click to verify</a>`,
+  };
+
+  await sendEMail(emailSettings);
+
   const { email: userEmail, name } = await User.create({
     ...req.body,
     password: hashedPassword,
     avatarUrl,
+    verificationToken,
   });
   res.status(201).json({ userEmail, name });
 };
@@ -35,6 +46,10 @@ const login = async (req, res) => {
 
   if (!isExist) {
     throw httpError(401, `Email or password is wrong`);
+  }
+
+  if (!isExist.isVerified) {
+    throw httpError(401, "Email is not verified");
   }
 
   const isPasswordSame = bcrypt.compare(password, isExist.password);
@@ -110,6 +125,44 @@ const updateAvatar = async (req, res) => {
   });
 };
 
+const verify = async (req, res) => {
+  const { verificationToken } = req.params;
+  const user = await User.findOne({ verificationToken });
+
+  if (!user) {
+    throw httpError(401, "Unauthorized");
+  }
+
+  await User.findByIdAndUpdate(user._id, {
+    verificationToken: "",
+    isVerified: true,
+  });
+  res.json({ message: "Verification successful" });
+};
+
+const resend = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw httpError(401, "User is not found");
+  }
+
+  if (user.isVerified) {
+    throw httpError(400, "User has already verified");
+  }
+
+  const emailSettings = {
+    to: email,
+    subject: "Verification",
+    html: `<a href="${envsConfig.baseUrl}/api/auth/verify/${user.verificationToken}" target="_blank">Click to verify</a>`,
+  };
+
+  await sendEMail(emailSettings);
+
+  res.json({ message: "Message sent" });
+};
+
 module.exports = {
   register: ctrlWrapper(register),
   login: ctrlWrapper(login),
@@ -117,4 +170,6 @@ module.exports = {
   logout: ctrlWrapper(logout),
   getOneUser: ctrlWrapper(getOneUser),
   updateAvatar: ctrlWrapper(updateAvatar),
+  verify: ctrlWrapper(verify),
+  resend: ctrlWrapper(resend),
 };

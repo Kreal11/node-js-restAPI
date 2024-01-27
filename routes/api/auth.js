@@ -21,6 +21,13 @@ router.post(
 router.get("/current", authorization, authController.current);
 router.get("/logout", authorization, authController.logout);
 router.get("/getOne", authorization, authController.getOneUser);
+router.get("/verify/:verificationToken", authController.verify);
+
+router.post(
+  "/verify",
+  validateBody(usersSchemas.emailSchema),
+  authController.resend
+);
 
 router.patch(
   "/users/avatars",
